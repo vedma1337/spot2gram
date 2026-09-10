@@ -1,95 +1,117 @@
 # spot2gram
 
-Sync your currently playing Spotify track to Telegram music status. Uses a Telegram Bot to download track and the Spotify Web API.
+Show the track you're listening to on Spotify in your Telegram profile's music section. Works with Spotify Free — no Premium subscription or Spotify API keys required.
 
-> 🇷🇺 README на Русском доступно [здесь](README-RU.md)
+**English** · [Русский](README-RU.md)
 
-Thanks to [@playinnowbot](https://t.me/playinnowbot) Telegram bot for the opportunity to get music from it
+> [!WARNING]
+> This project uses an unofficial Spotify interface. Use it at your own risk.
 
-![demo image](.github/images/demo.png)
-![demo image 2](.github/images/demo2.png)
+![Music in a Telegram profile](.github/images/demo.png)
 
 ## How it works
-- Checks if something is playing right now on Spotify
-- If something is playing finds track via telegram bot and adds it to your Telegram music status
-- Clears previous track when playback stops or track changes
+
+Play music on Spotify on your phone, computer, or another device. The script reads the current track, sends its Spotify link to [@nowtrackbot](https://t.me/nowtrackbot), and posts the resulting audio in your Telegram channel. It then adds that audio to your profile music.
+
+When the track changes, your profile music updates. When playback pauses, the script removes it. Audio messages stay in the channel.
+
+Keep the script running while you want syncing enabled. Spotify doesn't need to be open on the same computer: the script follows your account's active device.
 
 ## Requirements
-- [Python](https://www.python.org/downloads/) 3.10+
 
-## Create a Spotify App
-1. Open the Spotify Developer Dashboard (`https://developer.spotify.com/dashboard`)
-2. Create an app
-3. In app settings add the Redirect URI: `http://127.0.0.1:8888/callback`
-4. Save changes
-5. Copy your `Client ID` and `Client Secret` and fill them in .env
+- Python 3.10 or newer.
+- Spotify and Telegram accounts.
+- A dedicated Telegram channel where your account can post. A private channel is recommended.
+- Your Spotify web player's `sp_dc` cookie — see the instructions below.
 
-## Telegram Setup
-1. Start [@playinnowbot](https://t.me/playinnowbot) Telegram bot
-2. Link Spotify account in the bot
-3. Create new Telegram Channel that will contain tracks
-4. Get ID of telegram channel and fill it in .env (usually ID should start with -100, if ID doesn't - add -100 yourself)
+## Installation
 
-## Quick Start
+Download the project and open a terminal in its folder.
 
-### Clone and enter the project
-```bash
-git clone https://github.com/vedma1337/spot2gram.git
-cd spot2gram
-```
+**Windows — PowerShell:**
 
-### Linux
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip3 install -r requirements.txt
-cp .env-example .env
-nano .env  # fill SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REDIRECT_URI, CHANNEL_ID
-
-# Get refresh token
-python3 spotify_auth.py
-
-nano .env # fill SPOTIFY_REFRESH_TOKEN you just got from script
-
-# Run
-python3 main.py
-```
-
-### Windows (PowerShell)
 ```powershell
-python -m venv venv
-venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env-example .env
-# open .env and fill SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REDIRECT_URI, CHANNEL_ID
-
-# Get refresh token
-python spotify_auth.py
-
-# open .env again and fill SPOTIFY_REFRESH_TOKEN you just got from script
-
-# Run
-python main.py
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-## Configure .env
-Copy `.env-example` to `.env` and fill the values:
+**Linux / macOS:**
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+## Configuration
+
+Copy `.env-example` to a new file named `.env`. If you already have `.env`, edit it instead.
+
+### 1. Get your Spotify cookie
+
+1. Open [open.spotify.com](https://open.spotify.com) and sign in.
+2. Open browser developer tools: **F12** or **Ctrl+Shift+I**. On macOS, use **⌘⌥I**.
+3. In Chrome / Edge, select **Application → Storage → Cookies**. In Firefox, select **Storage → Cookies**.
+4. Select the Spotify domain and find **`sp_dc`**.
+5. Copy its **Value** into `SPOTIFY_SP_DC` in `.env`.
+
+This cookie grants access to your Spotify session. Don't publish or share your `.env` file.
+
+### 2. Set your channel
+
+Set `CHANNEL_ID` to the channel's full **numeric ID**, such as `-1001234567890`. Use the ID, not the channel's name, link, or `@username`.
+
+Your `.env` should look like this:
+
 ```ini
-SPOTIFY_CLIENT_ID=your_spotify_client_id
-SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-SPOTIFY_REFRESH_TOKEN=  # should be filled after running spotify_auth.py
-SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
-CHANNEL_ID=your_telegram_channel_id
+SPOTIFY_SP_DC=your_cookie_value
+CHANNEL_ID=-1001234567890
 POLL_INTERVAL_SECONDS=5
 ```
 
-## Environment Variables
-- `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`: from your Spotify app
-- `SPOTIFY_REFRESH_TOKEN`: obtained via `spotify_auth.py`
-- `SPOTIFY_REDIRECT_URI`: default `http://127.0.0.1:8888/callback`
-- `CHANNEL_ID`: numeric chat/channel ID to post the inline result (can be your Saved Messages or a private channel, better private channel)
-- `POLL_INTERVAL_SECONDS`: Spotify polling interval in seconds
+`POLL_INTERVAL_SECONDS` controls how often the script checks Spotify, in seconds. The default is every 5 seconds.
 
-> [!NOTE]
-> If no spotify refresh token is returned, revoke the app in your Spotify account (Apps) and run auth again.
-> Keep your Redirect URI exactly `http://127.0.0.1:8888/callback` in both your app settings and `.env`.
+## Run
+
+From the project folder:
+
+**Windows:**
+
+```powershell
+.venv\Scripts\python.exe main.py
+```
+
+**Linux / macOS:**
+
+```bash
+.venv/bin/python main.py
+```
+
+On the first run, follow the terminal prompts to sign in to Telegram. Your login is saved in `music_sync.session` and reused on later runs.
+
+Start a track in Spotify. It should appear in your channel and profile shortly.
+
+## Troubleshooting
+
+- `Spotify cookie expired or is not authenticated` — get a fresh `sp_dc`, replace it in `.env`, and restart. You can check the cookie's expiry in the browser's **Expires / Max-Age** column; the session may be revoked earlier.
+- `[tg] inline send error` / `[tg] no inline results for` — check `CHANNEL_ID`, your account's posting permissions, and whether @nowtrackbot returns an inline result for the track URL.
+- `Connect unavailable` — the script retries. Network failures aren't treated as a pause and don't remove profile music.
+
+The script remembers the music it added only until it restarts. Stopping the script doesn't remove the last track from your profile. After a restart, remove previously added profile music manually if needed.
+
+## Project files
+
+| File | Purpose |
+| --- | --- |
+| `main.py` | Posts tracks to Telegram and updates profile music |
+| `spotify.py` | Authenticates with Spotify and reads the current track |
+| `.env-example` | Example configuration |
+| `requirements.txt` | Python dependencies |
+| `tests/` | Tests for synchronization and error handling |
+
+Run tests without sending messages or changing your profile:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Use the Python interpreter from `.venv`, as shown in the run commands above.

@@ -2,3 +2,4 @@ kurigram
 tgcrypto
 requests
 python-dotenv
+websockets>=15,<17
