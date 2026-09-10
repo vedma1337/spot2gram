@@ -1,4 +1,7 @@
 *.session
+*.session-journal
+*.session-wal
+*.session-shm
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
