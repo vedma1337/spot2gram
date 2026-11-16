@@ -7,8 +7,6 @@ Show the track you're listening to on Spotify in your Telegram profile's music s
 > [!WARNING]
 > This project uses an unofficial Spotify interface. Use it at your own risk.
 
-![Music in a Telegram profile](.github/images/demo.png)
-
 ## How it works
 
 Play music on Spotify on your phone, computer, or another device. The script reads the current track, sends its Spotify link to [@nowtrackbot](https://t.me/nowtrackbot), and posts the resulting audio in your Telegram channel. It then adds that audio to your profile music.
