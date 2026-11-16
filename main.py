@@ -5,6 +5,7 @@ import asyncio
 import logging
 import signal
 import sys
+from datetime import datetime
 
 import requests
 from pyrogram import Client
@@ -22,8 +23,7 @@ log = logging.getLogger("spot2gram")
 TELEGRAM_CLIENT = dict(
     api_id=2040, api_hash="b18441a1ff607e10a989891a5462e627",
     device_model="B650 AORUS ELITE AX", system_version="Windows 10 x64",
-    lang_pack="tdesktop", lang_code="en", system_lang_code="en",
-    init_connection_params={"tz_offset": 0},
+    lang_pack="tdesktop", lang_code="en", system_lang_code="en-US",
 )
 TDESKTOP_RELEASES = "https://api.github.com/repos/telegramdesktop/tdesktop/releases/latest"
 TDESKTOP_FALLBACK_VERSION = "7.4.4"
@@ -40,6 +40,11 @@ def tdesktop_version() -> str:
                     type(exc).__name__, TDESKTOP_FALLBACK_VERSION)
         version = TDESKTOP_FALLBACK_VERSION
     return f"{version} x64"
+
+
+def tz_offset() -> int:
+    """This machine's UTC offset in seconds, rounded to 15 minutes, as tdesktop sends it."""
+    return round(datetime.now().astimezone().utcoffset().total_seconds() / 900) * 900
 
 
 def setup_logging(level: str) -> None:
@@ -67,6 +72,7 @@ async def run(config: Config) -> None:
     try:
         async with Client(config.session_name, workdir=str(config.workdir), fetch_topics=False,
                           skip_updates=True, no_updates=True, app_version=app_version,
+                          init_connection_params={"tz_offset": tz_offset()},
                           **TELEGRAM_CLIENT) as app:
             telegram = TelegramMusic(app, config.channel_id, config.bot_username)
             await telegram.check_setup()
