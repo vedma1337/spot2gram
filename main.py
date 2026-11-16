@@ -60,12 +60,15 @@ def setup_logging(level: str) -> None:
 
 
 async def run(config: Config) -> None:
-    # Ctrl+C already cancels us; make `kill` (SIGTERM) do the same on Linux/macOS.
+    # On Ctrl+C or `kill`, cancel only this task so shutdown can still talk to
+    # Telegram. (Python 3.10's default Ctrl+C handling cancels Pyrogram's
+    # network tasks too, and the exit cleanup then times out.)
     task = asyncio.current_task()
-    try:
-        asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
-    except (NotImplementedError, AttributeError):
-        pass  # Windows
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            asyncio.get_running_loop().add_signal_handler(sig, task.cancel)
+        except (NotImplementedError, AttributeError):
+            pass  # Windows: Ctrl+C already works this way on Python 3.11+.
 
     app_version = await asyncio.to_thread(tdesktop_version)
     spotify = SpotifyConnect(config.spotify_sp_dc)
