@@ -13,9 +13,9 @@ Show the track you're listening to on Spotify in your Telegram profile's music s
 
 Play music on Spotify on your phone, computer, or another device. The script reads the current track, sends its Spotify link to [@nowtrackbot](https://t.me/nowtrackbot), and posts the resulting audio in your Telegram channel. It then adds that audio to your profile music.
 
-When the track changes, your profile music updates. When playback pauses, the script removes it. Audio messages stay in the channel.
+When the track changes, your profile music updates. When playback stops (after a short grace period) or the script exits, the script removes it. Audio messages stay in the channel and are reused when you play the same song again. If @nowtrackbot can't find a track ("Audio not found"), the script deletes that message, removes the previous song from your profile, and doesn't ask about the track again for an hour.
 
-Keep the script running while you want syncing enabled. Spotify doesn't need to be open on the same computer: the script follows your account's active device.
+Keep the script running while you want syncing enabled. Spotify doesn't need to be open on the same computer: the script follows your account's active device. Spotify pushes every change to the script, so the profile updates within a second or two.
 
 ## Requirements
 
@@ -65,10 +65,17 @@ Your `.env` should look like this:
 ```ini
 SPOTIFY_SP_DC=your_cookie_value
 CHANNEL_ID=-1001234567890
-POLL_INTERVAL_SECONDS=5
 ```
 
-`POLL_INTERVAL_SECONDS` controls how often the script checks Spotify, in seconds. The default is every 5 seconds.
+Optional settings, all in seconds unless noted:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `CLEAR_DELAY_SECONDS` | `15` | How long after playback stops to remove the track, so short pauses don't make it blink. |
+| `STALE_AFTER_SECONDS` | `600` | Remove the track if Spotify can't be reached for this long. `0` keeps it. |
+| `AUDIO_TIMEOUT_SECONDS` | `90` | How long @nowtrackbot gets to attach the audio. |
+| `CLEAR_ON_EXIT` | `true` | Remove the track from your profile when the script stops. |
+| `LOG_LEVEL` | `INFO` | `DEBUG` shows every step. |
 
 ## Run
 
@@ -92,18 +99,26 @@ Start a track in Spotify. It should appear in your channel and profile shortly.
 
 ## Troubleshooting
 
-- `Spotify cookie expired or is not authenticated` — get a fresh `sp_dc`, replace it in `.env`, and restart. You can check the cookie's expiry in the browser's **Expires / Max-Age** column; the session may be revoked earlier.
-- `[tg] inline send error` / `[tg] no inline results for` — check `CHANNEL_ID`, your account's posting permissions, and whether @nowtrackbot returns an inline result for the track URL.
-- `Connect unavailable` — the script retries. Network failures aren't treated as a pause and don't remove profile music.
+Repeated errors are logged once, with a reminder every 10 minutes and an "OK again" line when they clear.
 
-The script remembers the music it added only until it restarts. Stopping the script doesn't remove the last track from your profile. After a restart, remove previously added profile music manually if needed.
+- `sp_dc cookie is expired or signed out` — get a fresh `sp_dc`, replace it in `.env`, and restart. You can check the cookie's expiry in the browser's **Expires / Max-Age** column; the session may be revoked earlier.
+- `unknown format` / `TOTP secret` — Spotify changed its unofficial protocol. The script logs this as an error and retries every 5 minutes, but it needs a code fix.
+- `Channel ... not found` — check `CHANNEL_ID` and that your account is a member who can post there.
+- `No audio for ...` — @nowtrackbot couldn't get that track. The script tries again after an hour.
+- `Spotify: network error` and similar — the script retries with a growing delay. A network failure isn't treated as a pause; the track stays on your profile for up to `STALE_AFTER_SECONDS`.
+
+The script records the music it added in `state.json`, so after a restart or crash it still removes its old track instead of leaving it behind.
 
 ## Project files
 
 | File | Purpose |
 | --- | --- |
-| `main.py` | Posts tracks to Telegram and updates profile music |
+| `main.py` | Entry point: logging, Telegram login, startup and shutdown |
+| `sync.py` | Decides what the profile should show and retries failures |
 | `spotify.py` | Authenticates with Spotify and reads the current track |
+| `telegram_music.py` | Asks @nowtrackbot for audio and updates profile music |
+| `state.py` | Remembers what the script put on the profile (`state.json`) |
+| `config.py` | Reads `.env` |
 | `.env-example` | Example configuration |
 | `requirements.txt` | Python dependencies |
 | `tests/` | Tests for synchronization and error handling |
