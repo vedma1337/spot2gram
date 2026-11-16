@@ -6,6 +6,7 @@ import logging
 import signal
 import sys
 
+import requests
 from pyrogram import Client
 
 from config import Config, ConfigError
@@ -16,12 +17,29 @@ from telegram_music import SetupError, TelegramMusic
 
 log = logging.getLogger("spot2gram")
 
-# Telegram Desktop's public API credentials and device info.
+# Connect the way official Telegram Desktop on Windows does: its public API
+# credentials, a motherboard as the device model, and its language pack.
 TELEGRAM_CLIENT = dict(
     api_id=2040, api_hash="b18441a1ff607e10a989891a5462e627",
-    app_version="6.1.3 x64", device_model="Z690-c/ac", system_version="Windows 10 x64",
-    lang_code="ru", system_lang_code="ru",
+    device_model="B650 AORUS ELITE AX", system_version="Windows 10 x64",
+    lang_pack="tdesktop", lang_code="en", system_lang_code="en",
+    init_connection_params={"tz_offset": 0},
 )
+TDESKTOP_RELEASES = "https://api.github.com/repos/telegramdesktop/tdesktop/releases/latest"
+TDESKTOP_FALLBACK_VERSION = "7.4.4"
+
+
+def tdesktop_version() -> str:
+    """The latest Telegram Desktop release, formatted like its app_version ("7.4.4 x64")."""
+    try:
+        response = requests.get(TDESKTOP_RELEASES, timeout=10)
+        response.raise_for_status()
+        version = response.json()["tag_name"].removeprefix("v")
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        log.warning("Couldn't get the latest Telegram Desktop version (%s); using %s",
+                    type(exc).__name__, TDESKTOP_FALLBACK_VERSION)
+        version = TDESKTOP_FALLBACK_VERSION
+    return f"{version} x64"
 
 
 def setup_logging(level: str) -> None:
@@ -44,10 +62,12 @@ async def run(config: Config) -> None:
     except (NotImplementedError, AttributeError):
         pass  # Windows
 
+    app_version = await asyncio.to_thread(tdesktop_version)
     spotify = SpotifyConnect(config.spotify_sp_dc)
     try:
         async with Client(config.session_name, workdir=str(config.workdir), fetch_topics=False,
-                          skip_updates=True, no_updates=True, **TELEGRAM_CLIENT) as app:
+                          skip_updates=True, no_updates=True, app_version=app_version,
+                          **TELEGRAM_CLIENT) as app:
             telegram = TelegramMusic(app, config.channel_id, config.bot_username)
             await telegram.check_setup()
             sync = MusicSync(spotify, telegram, StateStore(config.state_file), config)
